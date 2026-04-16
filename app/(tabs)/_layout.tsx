@@ -52,6 +52,13 @@ export default function TabLayout() {
           tabBarIcon: tabIcon('trophy-outline'),
         }}
       />
+      <Tabs.Screen
+        name="insights"
+        options={{
+          title: 'Insights',
+          tabBarIcon: tabIcon('bar-chart-outline'),
+        }}
+      />
     </Tabs>
   );
 }

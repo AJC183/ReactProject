@@ -14,9 +14,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import PrimaryButton from '@/components/ui/primary-button';
-import ScreenHeader from '@/components/ui/screen-header';
 import { db } from '@/db/client';
 import { categories as categoriesTable } from '@/db/schema';
+import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { eq } from 'drizzle-orm';
 
 type Category = { id: number; name: string; color: string; icon: string };
@@ -32,15 +32,15 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(translateY, { toValue: 0,  useNativeDriver: true, tension: 90, friction: 9 }),
-        Animated.spring(scale,      { toValue: 1,  useNativeDriver: true, tension: 90, friction: 9 }),
-        Animated.timing(opacity,    { toValue: 1,  duration: 120, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0,    useNativeDriver: true, tension: 90, friction: 9 }),
+        Animated.spring(scale,      { toValue: 1,    useNativeDriver: true, tension: 90, friction: 9 }),
+        Animated.timing(opacity,    { toValue: 1,    duration: 120, useNativeDriver: true }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(translateY, { toValue: 20, duration: 180, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: 20,   duration: 180, useNativeDriver: true }),
         Animated.timing(scale,      { toValue: 0.85, duration: 180, useNativeDriver: true }),
-        Animated.timing(opacity,    { toValue: 0,  duration: 180, useNativeDriver: true }),
+        Animated.timing(opacity,    { toValue: 0,    duration: 180, useNativeDriver: true }),
       ]).start();
     }
   }, [visible]);
@@ -50,7 +50,7 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
       pointerEvents="none"
       style={[styles.toast, { opacity, transform: [{ translateY }, { scale }] }]}
     >
-      <Ionicons name="checkmark-circle" size={15} color="#fff" />
+      <Ionicons name="checkmark-circle" size={15} color={Colors.accentLight} />
       <Text style={styles.toastText}>{message}</Text>
     </Animated.View>
   );
@@ -62,16 +62,14 @@ export default function CategoriesScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ action?: string; catName?: string; _t?: string }>();
 
-  const [cats, setCats]         = useState<Category[]>([]);
+  const [cats, setCats]             = useState<Category[]>([]);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [toast, setToast]       = useState({ message: '', visible: false });
+  const [toast, setToast]           = useState({ message: '', visible: false });
 
-  // Per-card entrance animated values
-  const entryAnims  = useRef<Map<number, Animated.Value>>(new Map());
-  // Single animated value driving the exit animation of whichever card is being deleted
-  const deleteAnim  = useRef(new Animated.Value(1)).current;
-  const toastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastTs      = useRef('');
+  const entryAnims = useRef<Map<number, Animated.Value>>(new Map());
+  const deleteAnim = useRef(new Animated.Value(1)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTs     = useRef('');
 
   const getEntryAnim = (id: number) => {
     if (!entryAnims.current.has(id)) {
@@ -112,8 +110,6 @@ export default function CategoriesScreen() {
   useFocusEffect(
     useCallback(() => {
       loadCategories();
-
-      // Show toast when returning from the form with an action param
       if (params._t && params._t !== lastTs.current && params.action) {
         lastTs.current = params._t;
         const msg =
@@ -134,11 +130,7 @@ export default function CategoriesScreen() {
       `Delete "${cat.name}"? Habits assigned to this category will be affected.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => performDelete(cat),
-        },
+        { text: 'Delete', style: 'destructive', onPress: () => performDelete(cat) },
       ],
     );
   };
@@ -179,24 +171,49 @@ export default function CategoriesScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenHeader
-        title="Categories"
-        subtitle={cats.length > 0 ? `${cats.length} category${cats.length === 1 ? '' : 's'}` : undefined}
-      />
 
-      {cats.length > 0 && (
-        <PrimaryButton label="Add Category" onPress={goToAdd} />
-      )}
+      {/* ── Hero header ─────────────────────────────────────────────────── */}
+      <View style={styles.hero}>
+        {/* Centred radial glow */}
+        <View style={styles.glowOuter} />
+        <View style={styles.glowInner} />
 
+        {/* Loop wordmark — top right */}
+        <View style={styles.wordmarkRow}>
+          <Text style={styles.wordmark}>Loop</Text>
+          <Text style={styles.wordmarkDot}>.</Text>
+        </View>
+
+        {/* Title block */}
+        <View style={styles.heroContent}>
+          <Text style={styles.heroTitle}>Categories</Text>
+          <Text style={styles.heroSubtitle}>
+            {cats.length === 0
+              ? 'No categories yet'
+              : `${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}`}
+          </Text>
+        </View>
+
+        {/* Full-width Add button */}
+        {cats.length > 0 && (
+          <View style={styles.heroAction}>
+            <PrimaryButton label="Add Category" onPress={goToAdd} />
+          </View>
+        )}
+      </View>
+
+      {/* ── List ────────────────────────────────────────────────────────── */}
       <ScrollView
         style={styles.list}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       >
         {cats.length === 0 ? (
-          // ── Empty state ──────────────────────────────────────────────────
           <View style={styles.emptyState}>
-            <Ionicons name="grid-outline" size={52} color="#CBD5E1" />
+            <View style={styles.emptyIconWrap}>
+              <View style={styles.emptyGlow} />
+              <Ionicons name="grid-outline" size={44} color={Colors.textTertiary} />
+            </View>
             <Text style={styles.emptyTitle}>No categories yet</Text>
             <Text style={styles.emptySubtitle}>
               Create your first category to start organising your habits.
@@ -206,7 +223,6 @@ export default function CategoriesScreen() {
             </View>
           </View>
         ) : (
-          // ── Category cards ───────────────────────────────────────────────
           cats.map(cat => {
             const entryAnim  = getEntryAnim(cat.id);
             const isDeleting = deletingId === cat.id;
@@ -217,23 +233,19 @@ export default function CategoriesScreen() {
                 style={[
                   styles.card,
                   {
-                    opacity: isDeleting
-                      ? deleteAnim
-                      : entryAnim,
+                    opacity: isDeleting ? deleteAnim : entryAnim,
                     transform: isDeleting
                       ? [{ scale: deleteAnim }]
-                      : [
-                          {
-                            translateY: entryAnim.interpolate({
-                              inputRange:  [0, 1],
-                              outputRange: [24, 0],
-                            }),
-                          },
-                        ],
+                      : [{
+                          translateY: entryAnim.interpolate({
+                            inputRange:  [0, 1],
+                            outputRange: [24, 0],
+                          }),
+                        }],
                   },
                 ]}
               >
-                {/* Colour + icon badge */}
+                {/* Colour + icon badge — solid rounded square */}
                 <View style={[styles.badge, { backgroundColor: cat.color }]}>
                   <Ionicons
                     name={`${cat.icon}-outline` as IoniconsName}
@@ -254,14 +266,14 @@ export default function CategoriesScreen() {
                     onPress={() => goToEdit(cat)}
                     hitSlop={6}
                   >
-                    <Ionicons name="create-outline" size={20} color="#0F766E" />
+                    <Ionicons name="create-outline" size={20} color={Colors.primaryLight} />
                   </Pressable>
                   <Pressable
                     style={({ pressed }) => [styles.iconBtn, pressed && styles.iconBtnPressed]}
                     onPress={() => handleDelete(cat)}
                     hitSlop={6}
                   >
-                    <Ionicons name="trash-outline" size={20} color="#B91C1C" />
+                    <Ionicons name="trash-outline" size={20} color={Colors.danger} />
                   </Pressable>
                 </View>
               </Animated.View>
@@ -279,23 +291,95 @@ export default function CategoriesScreen() {
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Colors.background,
     flex: 1,
-    paddingHorizontal: 18,
-    paddingTop: 10,
   },
+
+  // ── Hero ───────────────────────────────────────────────────────────────────
+  hero: {
+    alignItems: 'flex-start',
+    backgroundColor: Colors.background,
+    overflow: 'hidden',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.lg,
+  },
+  // Two-layer centred glow
+  glowOuter: {
+    backgroundColor: Colors.primary,
+    borderRadius: 999,
+    height: 220,
+    left: '50%',
+    marginLeft: -140,
+    opacity: 0.09,
+    position: 'absolute',
+    top: -80,
+    width: 280,
+  },
+  glowInner: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 999,
+    height: 120,
+    left: '50%',
+    marginLeft: -80,
+    opacity: 0.1,
+    position: 'absolute',
+    top: -30,
+    width: 160,
+  },
+  // Loop wordmark
+  wordmarkRow: {
+    alignItems: 'flex-end',
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    marginBottom: Spacing.md,
+  },
+  wordmark: {
+    color: Colors.textTertiary,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  wordmarkDot: {
+    color: Colors.primaryLight,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  heroContent: {
+    marginBottom: Spacing.md,
+    width: '100%',
+  },
+  heroTitle: {
+    color: Colors.textPrimary,
+    fontSize: 36,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  heroSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: Typography.bodySize,
+    marginTop: 4,
+  },
+  heroAction: {
+    alignSelf: 'stretch',
+  },
+
+  // ── List ───────────────────────────────────────────────────────────────────
   list: {
+    backgroundColor: Colors.background,
     flex: 1,
-    marginTop: 14,
   },
   listContent: {
-    paddingBottom: 24,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 32,
   },
+
+  // ── Card ───────────────────────────────────────────────────────────────────
   card: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     flexDirection: 'row',
     marginBottom: 10,
@@ -304,48 +388,66 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignItems: 'center',
-    borderRadius: 10,
-    height: 40,
+    borderRadius: Radius.md,
+    height: 42,
     justifyContent: 'center',
-    marginRight: 12,
-    width: 40,
+    marginRight: 14,
+    width: 42,
   },
   catName: {
-    color: '#111827',
+    color: Colors.textPrimary,
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: Typography.headingSize,
+    fontWeight: Typography.headingWeight,
   },
   actions: {
     flexDirection: 'row',
     gap: 4,
+    paddingRight: 8,
   },
   iconBtn: {
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: Radius.sm,
     height: 36,
     justifyContent: 'center',
     width: 36,
   },
   iconBtnPressed: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: Colors.surfaceElevated,
   },
-  // Empty state
+
+  // ── Empty state ────────────────────────────────────────────────────────────
   emptyState: {
     alignItems: 'center',
     paddingTop: 60,
     paddingHorizontal: 24,
   },
+  emptyIconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 88,
+    width: 88,
+  },
+  emptyGlow: {
+    backgroundColor: Colors.primary,
+    borderRadius: 999,
+    height: 72,
+    left: 8,
+    opacity: 0.15,
+    position: 'absolute',
+    top: 8,
+    width: 72,
+  },
   emptyTitle: {
-    color: '#111827',
+    color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 16,
   },
   emptySubtitle: {
-    color: '#6B7280',
-    fontSize: 14,
-    lineHeight: 20,
+    color: Colors.textSecondary,
+    fontSize: Typography.bodySize,
+    lineHeight: 22,
     marginTop: 6,
     textAlign: 'center',
   },
@@ -353,12 +455,15 @@ const styles = StyleSheet.create({
     marginTop: 24,
     width: '100%',
   },
-  // Toast
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
   toast: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#111827',
-    borderRadius: 100,
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
     bottom: 24,
     flexDirection: 'row',
     gap: 6,
@@ -367,8 +472,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   toastText: {
-    color: '#fff',
-    fontSize: 13,
+    color: Colors.textPrimary,
+    fontSize: Typography.captionSize,
     fontWeight: '600',
   },
 });
