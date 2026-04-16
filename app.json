@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "react-native-lab",
-    "slug": "react-native-lab",
+    "name": "Loop",
+    "slug": "loop-habit-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "reactnativelab",
+    "scheme": "loophabittracker",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
