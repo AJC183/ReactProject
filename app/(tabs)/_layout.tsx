@@ -59,6 +59,13 @@ export default function TabLayout() {
           tabBarIcon: tabIcon('bar-chart-outline'),
         }}
       />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarIcon: tabIcon('search-outline'),
+        }}
+      />
     </Tabs>
   );
 }
