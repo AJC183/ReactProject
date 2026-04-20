@@ -1,16 +1,104 @@
+import { Ionicons } from '@expo/vector-icons';
+import { eq } from 'drizzle-orm';
+import { useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+
 import PrimaryButton from '@/components/ui/primary-button';
 import ScreenHeader from '@/components/ui/screen-header';
 import { db } from '@/db/client';
 import { users } from '@/db/schema';
 import { useAuth } from '@/app/_layout';
-import { eq } from 'drizzle-orm';
-import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAppTheme } from '@/app/_layout';
+import { AppTheme, Radius, Spacing, Typography } from '@/constants/theme';
+
+// ─── Styles factory ───────────────────────────────────────────────────────────
+
+function makeStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safeArea: {
+      backgroundColor: theme.background,
+      flex: 1,
+      padding: Spacing.lg,
+    },
+    card: {
+      backgroundColor: theme.surface,
+      borderColor: theme.border,
+      borderRadius: Radius.lg,
+      borderWidth: 1,
+      marginBottom: 24,
+      paddingHorizontal: Spacing.md,
+    },
+    row: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 14,
+    },
+    rowLeft: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 10,
+    },
+    rowLabel: {
+      color: theme.textSecondary,
+      fontSize: Typography.bodySize,
+      fontWeight: '500',
+    },
+    rowValue: {
+      color: theme.textPrimary,
+      flexShrink: 1,
+      fontSize: Typography.bodySize,
+      fontWeight: '600',
+      marginLeft: 12,
+      textAlign: 'right',
+    },
+    divider: {
+      backgroundColor: theme.border,
+      height: 1,
+    },
+    backBtn: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 4,
+      alignSelf: 'flex-start',
+      marginBottom: Spacing.md,
+      paddingVertical: 4,
+    },
+    backLabel: {
+      color: theme.primaryLight,
+      fontSize: Typography.bodySize,
+      fontWeight: '600',
+    },
+    sectionLabel: {
+      color: theme.textTertiary,
+      fontSize: Typography.labelSize,
+      fontWeight: Typography.labelWeight,
+      letterSpacing: Typography.labelTracking,
+      marginBottom: Spacing.sm,
+      marginTop: Spacing.lg,
+      textTransform: 'uppercase',
+    },
+    actions: {
+      gap: 10,
+      marginTop: Spacing.sm,
+    },
+    dangerButton: {
+      marginTop: 2,
+    },
+  });
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
-  const [deleting, setDeleting] = useState(false);
+  const router                         = useRouter();
+  const { user, logout }               = useAuth();
+  const { isDark, theme, toggleTheme } = useAppTheme();
+  const [deleting, setDeleting]   = useState(false);
+
+  const styles = useMemo(() => makeStyles(theme), [theme]);
 
   if (!user) return null;
 
@@ -35,7 +123,7 @@ export default function ProfileScreen() {
             try {
               await db.delete(users).where(eq(users.id, user.id));
               logout();
-            } catch (e) {
+            } catch {
               Alert.alert('Error', 'Could not delete account. Please try again.');
             } finally {
               setDeleting(false);
@@ -48,8 +136,15 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+        <Ionicons name="chevron-back" size={18} color={theme.primaryLight} />
+        <Text style={styles.backLabel}>Back</Text>
+      </Pressable>
+
       <ScreenHeader title="Profile" subtitle="Manage your account." />
 
+      {/* ── Account info ─────────────────────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>Account</Text>
       <View style={styles.card}>
         <View style={styles.row}>
           <Text style={styles.rowLabel}>Username</Text>
@@ -67,6 +162,28 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* ── Appearance ───────────────────────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>Appearance</Text>
+      <View style={styles.card}>
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Ionicons
+              name={isDark ? 'moon-outline' : 'sunny-outline'}
+              size={18}
+              color={theme.primaryLight}
+            />
+            <Text style={styles.rowLabel}>{isDark ? 'Dark mode' : 'Light mode'}</Text>
+          </View>
+          <Switch
+            value={isDark}
+            onValueChange={toggleTheme}
+            trackColor={{ false: theme.border, true: theme.primaryDim }}
+            thumbColor={isDark ? theme.primaryLight : theme.textTertiary}
+          />
+        </View>
+      </View>
+
+      {/* ── Actions ──────────────────────────────────────────────────────── */}
       <View style={styles.actions}>
         <PrimaryButton label="Sign Out" variant="secondary" onPress={handleLogout} />
         <View style={styles.dangerButton}>
@@ -80,47 +197,3 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: '#F8FAFC',
-    flex: 1,
-    padding: 20,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 24,
-    paddingHorizontal: 16,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-  },
-  rowLabel: {
-    color: '#6B7280',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  rowValue: {
-    color: '#111827',
-    fontSize: 14,
-    fontWeight: '600',
-    flexShrink: 1,
-    textAlign: 'right',
-    marginLeft: 12,
-  },
-  divider: {
-    backgroundColor: '#F3F4F6',
-    height: 1,
-  },
-  actions: {
-    gap: 10,
-  },
-  dangerButton: {
-    marginTop: 2,
-  },
-});

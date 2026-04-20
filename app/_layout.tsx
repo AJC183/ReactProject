@@ -1,6 +1,9 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { seedIfEmpty } from '@/db/seed';
+import { useTheme, UseThemeResult } from '@/hooks/useTheme';
+
+// ─── Auth context ─────────────────────────────────────────────────────────────
 
 export type User = {
   id: number;
@@ -22,6 +25,18 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthContext');
   return ctx;
 }
+
+// ─── Theme context ────────────────────────────────────────────────────────────
+
+const ThemeContext = createContext<UseThemeResult | null>(null);
+
+export function useAppTheme() {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useAppTheme must be used within ThemeContext');
+  return ctx;
+}
+
+// ─── Auth guard ───────────────────────────────────────────────────────────────
 
 // Rendered after <Stack> so the navigator is guaranteed to be mounted
 // before any navigation attempt. setTimeout(0) defers to the next event
@@ -46,20 +61,25 @@ function AuthGuard() {
   return null;
 }
 
+// ─── Root layout ──────────────────────────────────────────────────────────────
+
 export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
+  const themeResult = useTheme();
 
   useEffect(() => {
     void seedIfEmpty();
   }, []);
 
-  const login = (u: User) => setUser(u);
+  const login  = (u: User) => setUser(u);
   const logout = () => setUser(null);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
-      <Stack screenOptions={{ headerShown: false }} />
-      <AuthGuard />
-    </AuthContext.Provider>
+    <ThemeContext.Provider value={themeResult}>
+      <AuthContext.Provider value={{ user, login, logout }}>
+        <Stack screenOptions={{ headerShown: false }} />
+        <AuthGuard />
+      </AuthContext.Provider>
+    </ThemeContext.Provider>
   );
 }

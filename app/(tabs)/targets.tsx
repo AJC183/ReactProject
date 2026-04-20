@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { and, eq, gte, lte, sum } from 'drizzle-orm';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -21,6 +21,8 @@ import {
   habitLogs,
   targets as targetsTable,
 } from '@/db/schema';
+import { useAppTheme } from '@/app/_layout';
+import { AppTheme, Radius, Spacing, Typography } from '@/constants/theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,38 +93,248 @@ function getStatus(progress: number, target: number, endDate: string | null): St
   return 'active';
 }
 
+// ─── Styles factory ───────────────────────────────────────────────────────────
+
+function makeStyles(theme: AppTheme) {
+  return StyleSheet.create({
+    safeArea: {
+      backgroundColor: theme.background,
+      flex: 1,
+    },
+    header: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingHorizontal: Spacing.lg,
+      paddingTop: Spacing.sm,
+      paddingBottom: Spacing.md,
+    },
+    headerTitle: {
+      color: theme.textPrimary,
+      fontSize: 28,
+      fontWeight: '800',
+      letterSpacing: -0.5,
+    },
+    headerSub: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      marginTop: 3,
+    },
+    addBtn: {
+      alignItems: 'center',
+      backgroundColor: theme.accent,
+      borderRadius: Radius.md,
+      height: 38,
+      justifyContent: 'center',
+      width: 38,
+    },
+    summaryRow: {
+      alignItems: 'center',
+      backgroundColor: theme.surface,
+      borderColor: theme.border,
+      borderRadius: Radius.xl,
+      borderWidth: 1,
+      flexDirection: 'row',
+      marginHorizontal: Spacing.md,
+      marginBottom: Spacing.md,
+      paddingVertical: Spacing.lg,
+    },
+    summaryCard: {
+      alignItems: 'center',
+      flex: 1,
+      gap: 10,
+    },
+    summaryDivider: {
+      backgroundColor: theme.border,
+      height: 64,
+      width: 1,
+    },
+    summaryPeriodLabel: {
+      color: theme.textSecondary,
+      fontSize: Typography.labelSize,
+      fontWeight: Typography.labelWeight,
+      letterSpacing: Typography.labelTracking,
+    },
+    summarySubLabel: {
+      color: theme.textTertiary,
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    list: { flex: 1 },
+    listContent: {
+      paddingHorizontal: Spacing.md,
+      paddingBottom: 40,
+    },
+    listEmpty: { flex: 1 },
+    sectionLabel: {
+      color: theme.textTertiary,
+      fontSize: Typography.labelSize,
+      fontWeight: Typography.labelWeight,
+      letterSpacing: Typography.labelTracking,
+      marginBottom: 10,
+      marginTop: 4,
+    },
+    card: {
+      backgroundColor: theme.surface,
+      borderRadius: Radius.lg,
+      borderWidth: 1,
+      flexDirection: 'row',
+      marginBottom: 12,
+      overflow: 'hidden',
+    },
+    accentBar: { width: 4 },
+    cardInner: {
+      flex: 1,
+      paddingBottom: 12,
+      paddingHorizontal: 14,
+      paddingTop: 14,
+    },
+    cardTop: {
+      flexDirection: 'row',
+      gap: 14,
+      marginBottom: 12,
+    },
+    cardInfo: { flex: 1 },
+    cardTitleRow: {
+      alignItems: 'flex-start',
+      flexDirection: 'row',
+      gap: 8,
+      justifyContent: 'space-between',
+      marginBottom: 4,
+    },
+    habitName: {
+      color: theme.textPrimary,
+      flex: 1,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    statusPill: {
+      alignItems: 'center',
+      borderRadius: Radius.pill,
+      borderWidth: 1,
+      flexDirection: 'row',
+      gap: 3,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+    },
+    statusPillText: {
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    metaRow: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      gap: 5,
+      marginBottom: 10,
+    },
+    metaCat: { fontSize: 12, fontWeight: '600' },
+    metaDot: { color: theme.border, fontSize: 12 },
+    metaText: { color: theme.textSecondary, fontSize: 12 },
+    progressTrack: {
+      backgroundColor: theme.border,
+      borderRadius: 3,
+      height: 5,
+      marginBottom: 6,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      borderRadius: 3,
+      height: 5,
+    },
+    progressLabel: {
+      color: theme.textTertiary,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    cardActions: {
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    endDateText: {
+      color: theme.textTertiary,
+      fontSize: 11,
+      fontWeight: '500',
+    },
+    iconActions: { flexDirection: 'row', gap: 4 },
+    iconAction: {
+      alignItems: 'center',
+      borderRadius: Radius.sm,
+      height: 34,
+      justifyContent: 'center',
+      width: 34,
+    },
+    iconActionPressed: { backgroundColor: theme.surfaceElevated },
+    emptyState: {
+      alignItems: 'center',
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+    },
+    emptyTitle: {
+      color: theme.textPrimary,
+      fontSize: 18,
+      fontWeight: '700',
+      marginTop: 16,
+    },
+    emptySubtitle: {
+      color: theme.textSecondary,
+      fontSize: 14,
+      lineHeight: 20,
+      marginTop: 6,
+      textAlign: 'center',
+    },
+    toast: {
+      alignItems: 'center',
+      alignSelf: 'center',
+      backgroundColor: theme.surface,
+      borderColor: theme.border,
+      borderRadius: Radius.pill,
+      borderWidth: 1,
+      bottom: 24,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      position: 'absolute',
+    },
+    toastText: {
+      color: theme.textPrimary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+  });
+}
+
 // ─── Progress Ring ────────────────────────────────────────────────────────────
 
 function ProgressRing({
   current,
   target,
   color,
+  theme,
   size = 56,
   showPct = false,
 }: {
   current: number;
   target: number;
   color: string;
+  theme: AppTheme;
   size?: number;
   showPct?: boolean;
 }) {
-  const progress = target > 0 ? Math.min(1, current / target) : 0;
-  const bw   = Math.max(4, Math.round(size * 0.09));
-  const half = size / 2;
-
+  const progress    = target > 0 ? Math.min(1, current / target) : 0;
+  const bw          = Math.max(4, Math.round(size * 0.09));
+  const half        = size / 2;
   const rightRotate = progress <= 0.5 ? 180 - progress * 2 * 180 : 0;
   const leftRotate  = progress <= 0.5 ? -180 : -180 + (progress - 0.5) * 2 * 180;
 
   return (
     <View style={{ width: size, height: size }}>
-      {/* Track */}
-      <View
-        style={{
-          position: 'absolute', left: 0, top: 0, right: 0, bottom: 0,
-          borderRadius: half, borderWidth: bw, borderColor: '#2A2A38',
-        }}
-      />
-      {/* Right fill */}
+      <View style={{
+        position: 'absolute', left: 0, top: 0, right: 0, bottom: 0,
+        borderRadius: half, borderWidth: bw, borderColor: theme.border,
+      }} />
       <View style={{ position: 'absolute', left: half, top: 0, width: half, height: size, overflow: 'hidden' }}>
         <View style={{
           position: 'absolute', left: -half, top: 0, width: size, height: size,
@@ -130,7 +342,6 @@ function ProgressRing({
           transform: [{ rotate: `${rightRotate}deg` }],
         }} />
       </View>
-      {/* Left fill */}
       <View style={{ position: 'absolute', left: 0, top: 0, width: half, height: size, overflow: 'hidden' }}>
         <View style={{
           position: 'absolute', left: 0, top: 0, width: size, height: size,
@@ -138,21 +349,20 @@ function ProgressRing({
           transform: [{ rotate: `${leftRotate}deg` }],
         }} />
       </View>
-      {/* Centre */}
       <View style={{
         position: 'absolute', left: 0, top: 0, right: 0, bottom: 0,
         justifyContent: 'center', alignItems: 'center',
       }}>
         {showPct ? (
-          <Text style={{ color: '#FFFFFF', fontSize: size * 0.21, fontWeight: '800' }}>
+          <Text style={{ color: theme.textPrimary, fontSize: size * 0.21, fontWeight: '800' }}>
             {Math.round(progress * 100)}%
           </Text>
         ) : (
           <>
-            <Text style={{ color: '#FFFFFF', fontSize: size * 0.24, fontWeight: '800', lineHeight: size * 0.3 }}>
+            <Text style={{ color: theme.textPrimary, fontSize: size * 0.24, fontWeight: '800', lineHeight: size * 0.3 }}>
               {Math.min(Math.round(current), target)}
             </Text>
-            <Text style={{ color: '#6B7280', fontSize: size * 0.19, fontWeight: '500' }}>
+            <Text style={{ color: theme.textTertiary, fontSize: size * 0.19, fontWeight: '500' }}>
               /{target}
             </Text>
           </>
@@ -164,7 +374,8 @@ function ProgressRing({
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
-function Toast({ message, visible }: { message: string; visible: boolean }) {
+function Toast({ message, visible, theme }: { message: string; visible: boolean; theme: AppTheme }) {
+  const styles     = useMemo(() => makeStyles(theme), [theme]);
   const translateY = useRef(new Animated.Value(20)).current;
   const opacity    = useRef(new Animated.Value(0)).current;
   const scale      = useRef(new Animated.Value(0.85)).current;
@@ -190,7 +401,7 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
       pointerEvents="none"
       style={[styles.toast, { opacity, transform: [{ translateY }, { scale }] }]}
     >
-      <Ionicons name="checkmark-circle" size={15} color="#22C55E" />
+      <Ionicons name="checkmark-circle" size={15} color={STATUS_COLOR.met} />
       <Text style={styles.toastText}>{message}</Text>
     </Animated.View>
   );
@@ -199,8 +410,10 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function TargetsScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams<{ action?: string; _t?: string }>();
+  const router    = useRouter();
+  const params    = useLocalSearchParams<{ action?: string; _t?: string }>();
+  const { theme } = useAppTheme();
+  const styles    = useMemo(() => makeStyles(theme), [theme]);
 
   const [targets, setTargets]       = useState<TargetRow[]>([]);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -340,7 +553,7 @@ export default function TargetsScreen() {
       });
   };
 
-  // ── Derived stats ────────────────────────────────────────────────────────────
+  // ── Derived stats ─────────────────────────────────────────────────────────────
 
   const weekly     = targets.filter(t => t.period === 'weekly');
   const monthly    = targets.filter(t => t.period === 'monthly');
@@ -348,7 +561,7 @@ export default function TargetsScreen() {
   const monthlyMet = monthly.filter(t => t.status === 'met').length;
   const totalMet   = targets.filter(t => t.status === 'met').length;
 
-  // ── Card renderer ────────────────────────────────────────────────────────────
+  // ── Card renderer ─────────────────────────────────────────────────────────────
 
   const renderCard = (target: TargetRow) => {
     const entryAnim   = getEntryAnim(target.id);
@@ -364,8 +577,9 @@ export default function TargetsScreen() {
           styles.card,
           {
             borderColor:
-              target.status === 'met'     ? '#22C55E33' :
-              target.status === 'overdue' ? '#EF444433' : '#252532',
+              target.status === 'met'     ? STATUS_COLOR.met     + '33' :
+              target.status === 'overdue' ? STATUS_COLOR.overdue + '33' :
+              theme.border,
           },
           {
             opacity: isDeleting ? deleteAnim : entryAnim,
@@ -375,29 +589,25 @@ export default function TargetsScreen() {
           },
         ]}
       >
-        {/* Left accent bar */}
         <View style={[styles.accentBar, { backgroundColor: target.categoryColor }]} />
 
         <View style={styles.cardInner}>
-          {/* Top row: ring + info */}
           <View style={styles.cardTop}>
             <ProgressRing
               current={target.progress}
               target={target.targetCount}
               color={statusColor}
+              theme={theme}
               size={60}
             />
 
             <View style={styles.cardInfo}>
-              {/* Name + status pill */}
               <View style={styles.cardTitleRow}>
                 <Text style={styles.habitName} numberOfLines={1}>{target.habitName}</Text>
-                <View
-                  style={[
-                    styles.statusPill,
-                    { backgroundColor: statusColor + '20', borderColor: statusColor + '55' },
-                  ]}
-                >
+                <View style={[
+                  styles.statusPill,
+                  { backgroundColor: statusColor + '20', borderColor: statusColor + '55' },
+                ]}>
                   <Ionicons name={STATUS_ICON[target.status]} size={10} color={statusColor} />
                   <Text style={[styles.statusPillText, { color: statusColor }]}>
                     {STATUS_LABEL[target.status]}
@@ -405,7 +615,6 @@ export default function TargetsScreen() {
                 </View>
               </View>
 
-              {/* Meta */}
               <View style={styles.metaRow}>
                 <Text style={[styles.metaCat, { color: target.categoryColor }]}>
                   {target.categoryName}
@@ -416,14 +625,8 @@ export default function TargetsScreen() {
                 </Text>
               </View>
 
-              {/* Progress bar */}
               <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${pct * 100}%`, backgroundColor: statusColor },
-                  ]}
-                />
+                <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: statusColor }]} />
               </View>
 
               <Text style={styles.progressLabel}>
@@ -434,34 +637,26 @@ export default function TargetsScreen() {
             </View>
           </View>
 
-          {/* Bottom row */}
           <View style={styles.cardActions}>
-            {target.endDate ? (
-              <Text style={styles.endDateText}>
-                Ends{' '}
-                {new Date(target.endDate).toLocaleDateString('en-GB', {
-                  day: 'numeric', month: 'short',
-                })}
-              </Text>
-            ) : (
-              <Text style={styles.endDateText}>Ongoing</Text>
-            )}
+            <Text style={styles.endDateText}>
+              {target.endDate
+                ? `Ends ${new Date(target.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
+                : 'Ongoing'}
+            </Text>
             <View style={styles.iconActions}>
               <Pressable
                 style={({ pressed }) => [styles.iconAction, pressed && styles.iconActionPressed]}
-                onPress={() =>
-                  router.push({ pathname: '/target-form', params: { id: String(target.id) } })
-                }
+                onPress={() => router.push({ pathname: '/target-form', params: { id: String(target.id) } })}
                 hitSlop={6}
               >
-                <Ionicons name="create-outline" size={18} color="#6B7280" />
+                <Ionicons name="create-outline" size={18} color={theme.textSecondary} />
               </Pressable>
               <Pressable
                 style={({ pressed }) => [styles.iconAction, pressed && styles.iconActionPressed]}
                 onPress={() => handleDelete(target)}
                 hitSlop={6}
               >
-                <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                <Ionicons name="trash-outline" size={18} color={theme.danger} />
               </Pressable>
             </View>
           </View>
@@ -470,11 +665,10 @@ export default function TargetsScreen() {
     );
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Targets</Text>
@@ -489,11 +683,10 @@ export default function TargetsScreen() {
           onPress={() => router.push('/target-form')}
           hitSlop={8}
         >
-          <Ionicons name="add" size={22} color="#FFFFFF" />
+          <Ionicons name="add" size={22} color={theme.textInverse} />
         </Pressable>
       </View>
 
-      {/* WHOOP-style summary panels */}
       {targets.length > 0 && (
         <View style={styles.summaryRow}>
           <View style={styles.summaryCard}>
@@ -501,13 +694,12 @@ export default function TargetsScreen() {
             <ProgressRing
               current={weeklyMet}
               target={Math.max(1, weekly.length)}
-              color={weekly.length > 0 && weeklyMet === weekly.length ? '#22C55E' : '#F59E0B'}
+              color={weekly.length > 0 && weeklyMet === weekly.length ? STATUS_COLOR.met : STATUS_COLOR.active}
+              theme={theme}
               size={76}
               showPct
             />
-            <Text style={styles.summarySubLabel}>
-              {weeklyMet}/{weekly.length} goals
-            </Text>
+            <Text style={styles.summarySubLabel}>{weeklyMet}/{weekly.length} goals</Text>
           </View>
 
           <View style={styles.summaryDivider} />
@@ -517,28 +709,24 @@ export default function TargetsScreen() {
             <ProgressRing
               current={monthlyMet}
               target={Math.max(1, monthly.length)}
-              color={monthly.length > 0 && monthlyMet === monthly.length ? '#22C55E' : '#818CF8'}
+              color={monthly.length > 0 && monthlyMet === monthly.length ? STATUS_COLOR.met : theme.primaryLight}
+              theme={theme}
               size={76}
               showPct
             />
-            <Text style={styles.summarySubLabel}>
-              {monthlyMet}/{monthly.length} goals
-            </Text>
+            <Text style={styles.summarySubLabel}>{monthlyMet}/{monthly.length} goals</Text>
           </View>
         </View>
       )}
 
       <ScrollView
         style={styles.list}
-        contentContainerStyle={[
-          styles.listContent,
-          targets.length === 0 && styles.listEmpty,
-        ]}
+        contentContainerStyle={[styles.listContent, targets.length === 0 && styles.listEmpty]}
         showsVerticalScrollIndicator={false}
       >
         {targets.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="trophy-outline" size={54} color="#252532" />
+            <Ionicons name="trophy-outline" size={54} color={theme.border} />
             <Text style={styles.emptyTitle}>No targets yet</Text>
             <Text style={styles.emptySubtitle}>
               Set weekly or monthly goals for your habits and track your progress here.
@@ -564,227 +752,7 @@ export default function TargetsScreen() {
         )}
       </ScrollView>
 
-      <Toast message={toast.message} visible={toast.visible} />
+      <Toast message={toast.message} visible={toast.visible} theme={theme} />
     </SafeAreaView>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: '#0D0D12',
-    flex: 1,
-  },
-  // Header
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 14,
-  },
-  headerTitle: {
-    color: '#F1F5F9',
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  headerSub: {
-    color: '#6B7280',
-    fontSize: 13,
-    marginTop: 3,
-  },
-  addBtn: {
-    alignItems: 'center',
-    backgroundColor: '#0F766E',
-    borderRadius: 10,
-    height: 38,
-    justifyContent: 'center',
-    width: 38,
-  },
-  // Summary panels (WHOOP-style)
-  summaryRow: {
-    alignItems: 'center',
-    backgroundColor: '#181821',
-    borderColor: '#252532',
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    paddingVertical: 20,
-  },
-  summaryCard: {
-    alignItems: 'center',
-    flex: 1,
-    gap: 10,
-  },
-  summaryDivider: {
-    backgroundColor: '#252532',
-    height: 64,
-    width: 1,
-  },
-  summaryPeriodLabel: {
-    color: '#9CA3AF',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.8,
-  },
-  summarySubLabel: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  // List
-  list: { flex: 1 },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-  },
-  listEmpty: { flex: 1 },
-  // Section label
-  sectionLabel: {
-    color: '#4B5563',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  // Card
-  card: {
-    backgroundColor: '#181821',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  accentBar: { width: 4 },
-  cardInner: {
-    flex: 1,
-    paddingBottom: 12,
-    paddingHorizontal: 14,
-    paddingTop: 14,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    gap: 14,
-    marginBottom: 12,
-  },
-  cardInfo: { flex: 1 },
-  cardTitleRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 8,
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  habitName: {
-    color: '#F1F5F9',
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  statusPill: {
-    alignItems: 'center',
-    borderRadius: 20,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  statusPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  metaRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 5,
-    marginBottom: 10,
-  },
-  metaCat: { fontSize: 12, fontWeight: '600' },
-  metaDot: { color: '#374151', fontSize: 12 },
-  metaText: { color: '#6B7280', fontSize: 12 },
-  // Progress bar
-  progressTrack: {
-    backgroundColor: '#252532',
-    borderRadius: 3,
-    height: 5,
-    marginBottom: 6,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    borderRadius: 3,
-    height: 5,
-  },
-  progressLabel: {
-    color: '#9CA3AF',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  // Card actions
-  cardActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  endDateText: {
-    color: '#4B5563',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  iconActions: { flexDirection: 'row', gap: 4 },
-  iconAction: {
-    alignItems: 'center',
-    borderRadius: 8,
-    height: 34,
-    justifyContent: 'center',
-    width: 34,
-  },
-  iconActionPressed: { backgroundColor: '#252532' },
-  // Empty state
-  emptyState: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    color: '#F1F5F9',
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    color: '#6B7280',
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  // Toast
-  toast: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: '#181821',
-    borderColor: '#252532',
-    borderRadius: 100,
-    borderWidth: 1,
-    bottom: 24,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    position: 'absolute',
-  },
-  toastText: {
-    color: '#F1F5F9',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-});
