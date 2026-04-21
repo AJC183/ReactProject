@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { eq } from 'drizzle-orm';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Animated, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -12,6 +12,7 @@ import { users } from '@/db/schema';
 import { useAuth } from '@/app/_layout';
 import { useAppTheme } from '@/app/_layout';
 import { AppTheme, Radius, Spacing, Typography } from '@/constants/theme';
+import { exportHabitLogs } from '@/utils/exportCsv';
 
 // ─── Styles factory ───────────────────────────────────────────────────────────
 
@@ -87,6 +88,25 @@ function makeStyles(theme: AppTheme) {
     dangerButton: {
       marginTop: 2,
     },
+    toast: {
+      alignItems: 'center',
+      alignSelf: 'center',
+      backgroundColor: theme.surface,
+      borderColor: theme.border,
+      borderRadius: 100,
+      borderWidth: 1,
+      bottom: 32,
+      flexDirection: 'row',
+      gap: 6,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      position: 'absolute',
+    },
+    toastText: {
+      color: theme.textPrimary,
+      fontSize: 13,
+      fontWeight: '600',
+    },
   });
 }
 
@@ -96,11 +116,47 @@ export default function ProfileScreen() {
   const router                         = useRouter();
   const { user, logout }               = useAuth();
   const { isDark, theme, toggleTheme } = useAppTheme();
-  const [deleting, setDeleting]   = useState(false);
+  const [deleting, setDeleting]        = useState(false);
+  const [exporting, setExporting]      = useState(false);
+  const [toast, setToast]              = useState({ message: '', visible: false, isError: false });
+
+  const toastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
+  useEffect(() => {
+    Animated.timing(toastOpacity, {
+      toValue:         toast.visible ? 1 : 0,
+      duration:        200,
+      useNativeDriver: true,
+    }).start();
+  }, [toast.visible]);
+
   if (!user) return null;
+
+  const showToast = (message: string, isError = false) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, visible: true, isError });
+    toastTimer.current = setTimeout(
+      () => setToast(t => ({ ...t, visible: false })),
+      2500,
+    );
+  };
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await exportHabitLogs();
+      showToast('Export ready!');
+    } catch (err) {
+      console.error('[Export] failed:', err);
+      showToast('Export failed. Please try again.', true);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -183,6 +239,14 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* ── Data ─────────────────────────────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>Data</Text>
+      <PrimaryButton
+        label={exporting ? 'Exporting…' : 'Export Data'}
+        variant="secondary"
+        onPress={handleExport}
+      />
+
       {/* ── Actions ──────────────────────────────────────────────────────── */}
       <View style={styles.actions}>
         <PrimaryButton label="Sign Out" variant="secondary" onPress={handleLogout} />
@@ -194,6 +258,16 @@ export default function ProfileScreen() {
           />
         </View>
       </View>
+
+      {/* ── Toast ────────────────────────────────────────────────────────── */}
+      <Animated.View pointerEvents="none" style={[styles.toast, { opacity: toastOpacity }]}>
+        <Ionicons
+          name={toast.isError ? 'alert-circle' : 'checkmark-circle'}
+          size={15}
+          color={toast.isError ? theme.danger : theme.success}
+        />
+        <Text style={styles.toastText}>{toast.message}</Text>
+      </Animated.View>
     </SafeAreaView>
   );
 }
