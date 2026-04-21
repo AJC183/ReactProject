@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { eq, like, sum } from 'drizzle-orm';
+import { eq, gte, like, sum } from 'drizzle-orm';
+import { calculateCurrentStreak } from '@/utils/streaks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -31,6 +32,7 @@ type HabitRow = {
   categoryColor: string;
   categoryIcon: string;
   loggedToday: number;
+  currentStreak: number;
 };
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -150,6 +152,18 @@ function makeStyles(theme: AppTheme) {
     metaFreq: {
       color: theme.textSecondary,
       fontSize: 12,
+    },
+    streakBadge: {
+      alignItems: 'center',
+      borderRadius: Radius.pill,
+      flexDirection: 'row',
+      gap: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+    },
+    streakText: {
+      fontSize: 11,
+      fontWeight: '700',
     },
     cardActions: {
       alignItems: 'center',
@@ -393,6 +407,11 @@ export default function HabitsScreen() {
     const now   = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
+    // 365-day window covers any realistic streak
+    const yearAgo = new Date(now);
+    yearAgo.setDate(yearAgo.getDate() - 365);
+    const yearAgoStr = yearAgo.toISOString().slice(0, 10);
+
     const rows = await db
       .select({
         id:            habitsTable.id,
@@ -409,18 +428,33 @@ export default function HabitsScreen() {
       .innerJoin(categoriesTable, eq(habitsTable.categoryId, categoriesTable.id))
       .where(eq(habitsTable.isActive, true));
 
-    const logCounts = await db
-      .select({ habitId: habitLogs.habitId, total: sum(habitLogs.value) })
-      .from(habitLogs)
-      .where(like(habitLogs.loggedAt, `${today}%`))
-      .groupBy(habitLogs.habitId);
+    const [logCounts, recentLogs] = await Promise.all([
+      db
+        .select({ habitId: habitLogs.habitId, total: sum(habitLogs.value) })
+        .from(habitLogs)
+        .where(like(habitLogs.loggedAt, `${today}%`))
+        .groupBy(habitLogs.habitId),
+      db
+        .select({ habitId: habitLogs.habitId, loggedAt: habitLogs.loggedAt })
+        .from(habitLogs)
+        .where(gte(habitLogs.loggedAt, yearAgoStr)),
+    ]);
 
     const countMap = new Map(logCounts.map(r => [r.habitId, parseFloat(r.total ?? '0') || 0]));
 
+    // Group log dates per habit for streak calculation
+    const datesByHabit = new Map<number, string[]>();
+    for (const log of recentLogs) {
+      const ymd = log.loggedAt.slice(0, 10);
+      if (!datesByHabit.has(log.habitId)) datesByHabit.set(log.habitId, []);
+      datesByHabit.get(log.habitId)!.push(ymd);
+    }
+
     const merged: HabitRow[] = rows.map(r => ({
       ...r,
-      description: r.description ?? null,
-      loggedToday: countMap.get(r.id) ?? 0,
+      description:   r.description ?? null,
+      loggedToday:   countMap.get(r.id) ?? 0,
+      currentStreak: calculateCurrentStreak(datesByHabit.get(r.id) ?? []),
     }));
 
     setHabits(merged);
@@ -572,6 +606,17 @@ export default function HabitsScreen() {
                         <Text style={styles.metaFreq}>
                           {habit.frequency === 'daily' ? 'Daily' : 'Weekly'}
                         </Text>
+                        {habit.currentStreak > 0 && (
+                          <>
+                            <Text style={styles.metaDot}>·</Text>
+                            <View style={[styles.streakBadge, { backgroundColor: theme.warning + '22' }]}>
+                              <Text style={{ fontSize: 10 }}>🔥</Text>
+                              <Text style={[styles.streakText, { color: theme.warning }]}>
+                                {habit.currentStreak}d
+                              </Text>
+                            </View>
+                          </>
+                        )}
                       </View>
                     </View>
 

@@ -16,6 +16,7 @@ import { db } from '@/db/client';
 import { categories as categoriesTable, habits as habitsTable, habitLogs } from '@/db/schema';
 import { useAppTheme } from '@/app/_layout';
 import { AppTheme, Radius, Spacing, Typography } from '@/constants/theme';
+import { calculateCurrentStreak, calculateLongestStreak } from '@/utils/streaks';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,14 @@ type CategorStat = {
 type DayStat = {
   ymd: string;
   total: number;
+};
+
+type HabitStreakStat = {
+  id: number;
+  name: string;
+  color: string;
+  currentStreak: number;
+  longestStreak: number;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -429,6 +438,33 @@ function ActivityHeatmap({
   );
 }
 
+// ─── Streak Row ───────────────────────────────────────────────────────────────
+
+function StreakRow({ stat, theme }: { stat: HabitStreakStat; theme: AppTheme }) {
+  return (
+    <View style={{ alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 10 }}>
+      <View style={{ backgroundColor: stat.color, borderRadius: 3, height: 10, width: 10 }} />
+      <Text
+        style={{ color: theme.textPrimary, flex: 1, fontSize: 14, fontWeight: '600' }}
+        numberOfLines={1}
+      >
+        {stat.name}
+      </Text>
+      <View style={{ alignItems: 'center', gap: 1 }}>
+        <Text style={{ color: theme.warning, fontSize: 14, fontWeight: '800' }}>
+          {stat.currentStreak > 0 ? `🔥 ${stat.currentStreak}` : '—'}
+        </Text>
+        <Text style={{ color: theme.textTertiary, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>CURRENT</Text>
+      </View>
+      <View style={{ backgroundColor: theme.border, height: 28, width: 1 }} />
+      <View style={{ alignItems: 'center', gap: 1 }}>
+        <Text style={{ color: theme.primaryLight, fontSize: 14, fontWeight: '800' }}>{stat.longestStreak}</Text>
+        <Text style={{ color: theme.textTertiary, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>BEST</Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function InsightsScreen() {
@@ -444,6 +480,7 @@ export default function InsightsScreen() {
   const [topHabit, setTopHabit]     = useState('—');
   const [hasData, setHasData]       = useState(false);
   const [loading, setLoading]       = useState(true);
+  const [streakStats, setStreakStats] = useState<HabitStreakStat[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -520,7 +557,45 @@ export default function InsightsScreen() {
     }
   }, [period]);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  const loadStreaks = useCallback(async () => {
+    const habitRows = await db
+      .select({
+        id: habitsTable.id,
+        name: habitsTable.name,
+        categoryColor: categoriesTable.color,
+      })
+      .from(habitsTable)
+      .innerJoin(categoriesTable, eq(habitsTable.categoryId, categoriesTable.id))
+      .where(eq(habitsTable.isActive, true));
+
+    if (habitRows.length === 0) { setStreakStats([]); return; }
+
+    const allLogs = await db
+      .select({ habitId: habitLogs.habitId, loggedAt: habitLogs.loggedAt })
+      .from(habitLogs);
+
+    const datesByHabit = new Map<number, string[]>();
+    for (const log of allLogs) {
+      const ymd = log.loggedAt.slice(0, 10);
+      if (!datesByHabit.has(log.habitId)) datesByHabit.set(log.habitId, []);
+      datesByHabit.get(log.habitId)!.push(ymd);
+    }
+
+    const stats: HabitStreakStat[] = habitRows
+      .map(h => ({
+        id:            h.id,
+        name:          h.name,
+        color:         h.categoryColor,
+        currentStreak: calculateCurrentStreak(datesByHabit.get(h.id) ?? []),
+        longestStreak: calculateLongestStreak(datesByHabit.get(h.id) ?? []),
+      }))
+      .filter(s => s.currentStreak > 0 || s.longestStreak > 0)
+      .sort((a, b) => b.currentStreak - a.currentStreak);
+
+    setStreakStats(stats);
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(); loadStreaks(); }, [load, loadStreaks]));
 
   const days     = periodDays(period);
   const catTotal = catStats.reduce((s, c) => s + c.total, 0);
@@ -617,6 +692,19 @@ export default function InsightsScreen() {
               </View>
             )}
           </>
+        )}
+
+        {streakStats.length > 0 && (
+          <View style={styles.chartCard}>
+            <Text style={styles.chartTitle}>Habit Streaks</Text>
+            <Text style={styles.chartSub}>Current consecutive days · all-time best</Text>
+            {streakStats.map((stat, i) => (
+              <View key={stat.id}>
+                {i > 0 && <View style={{ backgroundColor: theme.border, height: 1 }} />}
+                <StreakRow stat={stat} theme={theme} />
+              </View>
+            ))}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
