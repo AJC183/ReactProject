@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { eq } from 'drizzle-orm';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Animated, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -13,6 +14,12 @@ import { useAuth } from '@/app/_layout';
 import { useAppTheme } from '@/app/_layout';
 import { AppTheme, Radius, Spacing, Typography } from '@/constants/theme';
 import { exportHabitLogs } from '@/utils/exportCsv';
+import { notificationsSupported } from '@/utils/notifications';
+
+// ─── Storage keys ─────────────────────────────────────────────────────────────
+
+const KEY_NOTIF_HOUR   = '@loop_notif_hour';
+const KEY_NOTIF_MINUTE = '@loop_notif_minute';
 
 // ─── Styles factory ───────────────────────────────────────────────────────────
 
@@ -20,6 +27,9 @@ function makeStyles(theme: AppTheme) {
   return StyleSheet.create({
     safeArea: {
       backgroundColor: theme.background,
+      flex: 1,
+    },
+    scroll: {
       flex: 1,
       padding: Spacing.lg,
     },
@@ -84,9 +94,28 @@ function makeStyles(theme: AppTheme) {
     actions: {
       gap: 10,
       marginTop: Spacing.sm,
+      marginBottom: Spacing.xl,
     },
     dangerButton: {
       marginTop: 2,
+    },
+    permBanner: {
+      alignItems: 'center',
+      backgroundColor: theme.warning + '18',
+      borderRadius: Radius.sm,
+      flexDirection: 'row',
+      gap: 8,
+      marginBottom: 14,
+      marginTop: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    permBannerText: {
+      color: theme.warning,
+      flex: 1,
+      fontSize: 12,
+      fontWeight: '500',
+      lineHeight: 17,
     },
     toast: {
       alignItems: 'center',
@@ -116,15 +145,32 @@ export default function ProfileScreen() {
   const router                         = useRouter();
   const { user, logout }               = useAuth();
   const { isDark, theme, toggleTheme } = useAppTheme();
-  const [deleting, setDeleting]        = useState(false);
-  const [exporting, setExporting]      = useState(false);
-  const [toast, setToast]              = useState({ message: '', visible: false, isError: false });
 
-  const toastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const [deleting, setDeleting]   = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  // Saved time prefs — persisted so they're ready when a dev build is used
+  const [notifHour,   setNotifHour]   = useState(9);
+  const [notifMinute, setNotifMinute] = useState(0);
+
+  const [toast, setToast]    = useState({ message: '', visible: false, isError: false });
+  const toastTimer           = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastOpacity         = useRef(new Animated.Value(0)).current;
 
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
+  // Load saved time prefs on mount
+  useEffect(() => {
+    Promise.all([
+      AsyncStorage.getItem(KEY_NOTIF_HOUR),
+      AsyncStorage.getItem(KEY_NOTIF_MINUTE),
+    ]).then(([hour, minute]) => {
+      if (hour   !== null) setNotifHour(parseInt(hour, 10));
+      if (minute !== null) setNotifMinute(parseInt(minute, 10));
+    });
+  }, []);
+
+  // Toast fade
   useEffect(() => {
     Animated.timing(toastOpacity, {
       toValue:         toast.visible ? 1 : 0,
@@ -186,80 +232,110 @@ export default function ProfileScreen() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
-        <Ionicons name="chevron-back" size={18} color={theme.primaryLight} />
-        <Text style={styles.backLabel}>Back</Text>
-      </Pressable>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
 
-      <ScreenHeader title="Profile" subtitle="Manage your account." />
+        <Pressable style={styles.backBtn} onPress={() => router.back()} hitSlop={8}>
+          <Ionicons name="chevron-back" size={18} color={theme.primaryLight} />
+          <Text style={styles.backLabel}>Back</Text>
+        </Pressable>
 
-      {/* ── Account info ─────────────────────────────────────────────────── */}
-      <Text style={styles.sectionLabel}>Account</Text>
-      <View style={styles.card}>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Username</Text>
-          <Text style={styles.rowValue}>{user.username}</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Email</Text>
-          <Text style={styles.rowValue}>{user.email}</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Member since</Text>
-          <Text style={styles.rowValue}>{user.createdAt}</Text>
-        </View>
-      </View>
+        <ScreenHeader title="Profile" subtitle="Manage your account." />
 
-      {/* ── Appearance ───────────────────────────────────────────────────── */}
-      <Text style={styles.sectionLabel}>Appearance</Text>
-      <View style={styles.card}>
-        <View style={styles.row}>
-          <View style={styles.rowLeft}>
-            <Ionicons
-              name={isDark ? 'moon-outline' : 'sunny-outline'}
-              size={18}
-              color={theme.primaryLight}
-            />
-            <Text style={styles.rowLabel}>{isDark ? 'Dark mode' : 'Light mode'}</Text>
+        {/* ── Account ────────────────────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>Account</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Username</Text>
+            <Text style={styles.rowValue}>{user.username}</Text>
           </View>
-          <Switch
-            value={isDark}
-            onValueChange={toggleTheme}
-            trackColor={{ false: theme.border, true: theme.primaryDim }}
-            thumbColor={isDark ? theme.primaryLight : theme.textTertiary}
-          />
+          <View style={styles.divider} />
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Email</Text>
+            <Text style={styles.rowValue}>{user.email}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Member since</Text>
+            <Text style={styles.rowValue}>{user.createdAt}</Text>
+          </View>
         </View>
-      </View>
 
-      {/* ── Data ─────────────────────────────────────────────────────────── */}
-      <Text style={styles.sectionLabel}>Data</Text>
-      <PrimaryButton
-        label={exporting ? 'Exporting…' : 'Export Data'}
-        variant="secondary"
-        onPress={handleExport}
-      />
-
-      {/* ── Actions ──────────────────────────────────────────────────────── */}
-      <View style={styles.actions}>
-        <PrimaryButton label="Sign Out" variant="secondary" onPress={handleLogout} />
-        <View style={styles.dangerButton}>
-          <PrimaryButton
-            label={deleting ? 'Deleting…' : 'Delete Account'}
-            variant="danger"
-            onPress={handleDeleteAccount}
-          />
+        {/* ── Appearance ─────────────────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>Appearance</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.rowLeft}>
+              <Ionicons
+                name={isDark ? 'moon-outline' : 'sunny-outline'}
+                size={18}
+                color={theme.primaryLight}
+              />
+              <Text style={styles.rowLabel}>{isDark ? 'Dark mode' : 'Light mode'}</Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: theme.border, true: theme.primaryDim }}
+              thumbColor={isDark ? theme.primaryLight : theme.textTertiary}
+            />
+          </View>
         </View>
-      </View>
 
-      {/* ── Toast ────────────────────────────────────────────────────────── */}
+        {/* ── Notifications ──────────────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>Notifications</Text>
+        <View style={styles.card}>
+          {notificationsSupported() ? (
+            // Full notification UI rendered here when a dev build is in use.
+            // notificationsSupported() currently always returns false (stub),
+            // so this branch is unreachable until expo-notifications is
+            // reinstalled for a proper build.
+            <View style={styles.row}>
+              <View style={styles.rowLeft}>
+                <Ionicons name="notifications-outline" size={18} color={theme.primaryLight} />
+                <Text style={styles.rowLabel}>Daily reminder</Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.permBanner}>
+              <Ionicons name="information-circle-outline" size={16} color={theme.warning} />
+              <Text style={styles.permBannerText}>
+                Notifications require a development build. Run{' '}
+                <Text style={{ fontWeight: '700' }}>npx expo run:android</Text>
+                {' '}or use EAS Build to enable this feature.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Data ───────────────────────────────────────────────────────── */}
+        <Text style={styles.sectionLabel}>Data</Text>
+        <PrimaryButton
+          label={exporting ? 'Exporting...' : 'Export Data'}
+          variant="secondary"
+          onPress={handleExport}
+        />
+
+        {/* ── Actions ────────────────────────────────────────────────────── */}
+        <View style={styles.actions}>
+          <PrimaryButton label="Sign Out" variant="secondary" onPress={handleLogout} />
+          <View style={styles.dangerButton}>
+            <PrimaryButton
+              label={deleting ? 'Deleting...' : 'Delete Account'}
+              variant="danger"
+              onPress={handleDeleteAccount}
+            />
+          </View>
+        </View>
+
+      </ScrollView>
+
+      {/* ── Toast ──────────────────────────────────────────────────────────── */}
       <Animated.View pointerEvents="none" style={[styles.toast, { opacity: toastOpacity }]}>
         <Ionicons
           name={toast.isError ? 'alert-circle' : 'checkmark-circle'}
