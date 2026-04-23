@@ -303,11 +303,8 @@ export default function ProfileScreen() {
             </View>
           ) : (
             <View style={styles.permBanner}>
-              <Ionicons name="information-circle-outline" size={16} color={theme.warning} />
               <Text style={styles.permBannerText}>
-                Notifications require a development build. Run{' '}
-                <Text style={{ fontWeight: '700' }}>npx expo run:android</Text>
-                {' '}or use EAS Build to enable this feature.
+                Notification enablement placeholder button
               </Text>
             </View>
           )}
