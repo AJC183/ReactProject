@@ -28,7 +28,7 @@ export function useAuth() {
 
 // ─── Theme context ────────────────────────────────────────────────────────────
 
-const ThemeContext = createContext<UseThemeResult | null>(null);
+export const ThemeContext = createContext<UseThemeResult | null>(null);
 
 export function useAppTheme() {
   const ctx = useContext(ThemeContext);

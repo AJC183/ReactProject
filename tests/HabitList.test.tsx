@@ -1,6 +1,22 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import HabitsScreen from '../app/(tabs)/index';
+import { ThemeContext } from '@/app/_layout';
+import { DarkTheme } from '@/constants/theme';
+
+const mockThemeValue = {
+  isDark:      true,
+  theme:       DarkTheme,
+  toggleTheme: jest.fn(),
+};
+
+function ThemeWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <ThemeContext.Provider value={mockThemeValue}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
 
 // ── Mock the database ─────────────────────────────────────────────────────────
 jest.mock('@/db/client', () => ({
@@ -55,20 +71,20 @@ jest.mock('@/components/ui/settings-panel', () => {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 describe('HabitsScreen', () => {
   it('renders the Habits heading', () => {
-    const { getByText } = render(<HabitsScreen />);
+    const { getByText } = render(<HabitsScreen />, { wrapper: ThemeWrapper });
     expect(getByText('Habits')).toBeTruthy();
   });
 
   it('renders the empty state when there are no habits', () => {
     // "No habits yet" appears in both the header subtitle and the empty-state
     // body title — getAllByText handles the duplicate gracefully
-    const { getAllByText } = render(<HabitsScreen />);
+    const { getAllByText } = render(<HabitsScreen />, { wrapper: ThemeWrapper });
     const matches = getAllByText('No habits yet');
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows the empty-state prompt to use the FAB', () => {
-    const { getByText } = render(<HabitsScreen />);
+    const { getByText } = render(<HabitsScreen />, { wrapper: ThemeWrapper });
     expect(
       getByText('Tap + to create your first habit and start tracking your progress.')
     ).toBeTruthy();
